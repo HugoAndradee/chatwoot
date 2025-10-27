@@ -73,12 +73,42 @@ class Whatsapp::IncomingMessageBaseService
     end
   end
 
-  def create_regular_message(message)
-    create_message(message)
-    attach_files
-    attach_location if message_type == 'location'
-    @message.save!
+def create_regular_message(message)
+  create_message(message)
+  attach_files
+  attach_location if message_type == 'location'
+  
+  # Extrai dados interativos diretamente do payload
+  interactive = message[:interactive]
+  if interactive.present?
+    interactive_data = {}
+    
+    if interactive[:button_reply]
+      interactive_data = {
+        type: 'button_reply',
+        id: interactive[:button_reply][:id],
+        title: interactive[:button_reply][:title]
+      }
+    elsif interactive[:list_reply]
+      interactive_data = {
+        type: 'list_reply',
+        id: interactive[:list_reply][:id],
+        title: interactive[:list_reply][:title],
+        description: interactive[:list_reply][:description]
+      }
+    elsif interactive[:nfm_reply]
+      interactive_data = {
+        type: 'nfm_reply',
+        response_json: interactive[:nfm_reply][:response_json],
+        body: interactive[:nfm_reply][:body]
+      }
+    end
+    
+    @message.additional_attributes = interactive_data if interactive_data.present?
   end
+  
+  @message.save!
+end
 
   def set_contact
     contact_params = @processed_params[:contacts]&.first
