@@ -24,14 +24,41 @@ module Whatsapp::IncomingMessageServiceHelpers
     @processed_params[:messages].first[:type]
   end
 
-  def message_content(message)
-    # TODO: map interactive messages back to button messages in chatwoot
-    message.dig(:text, :body) ||
-      message.dig(:button, :text) ||
-      message.dig(:interactive, :button_reply, :title) ||
-      message.dig(:interactive, :list_reply, :title) ||
-      message.dig(:name, :formatted_name)
+def message_content(message)
+  message.dig(:text, :body) ||
+    message.dig(:button, :text) ||
+    extract_interactive_content(message) ||
+    message.dig(:name, :formatted_name)
+end
+
+def extract_interactive_content(message)
+  interactive = message[:interactive]
+  return nil unless interactive
+
+  if interactive[:button_reply]
+    @interactive_data = {
+      type: 'button_reply',
+      id: interactive[:button_reply][:id],
+      title: interactive[:button_reply][:title]
+    }
+    interactive[:button_reply][:title]
+  elsif interactive[:list_reply]
+    @interactive_data = {
+      type: 'list_reply',
+      id: interactive[:list_reply][:id],
+      title: interactive[:list_reply][:title],
+      description: interactive[:list_reply][:description]
+    }
+    interactive[:list_reply][:title]
+  elsif interactive[:nfm_reply]
+    @interactive_data = {
+      type: 'nfm_reply',
+      response_json: interactive[:nfm_reply][:response_json],
+      body: interactive[:nfm_reply][:body]
+    }
+    interactive[:nfm_reply][:body]
   end
+end
 
   def file_content_type(file_type)
     return :image if %w[image sticker].include?(file_type)
